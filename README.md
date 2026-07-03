@@ -1,4 +1,4 @@
-# Quiz MVP Backend
+# Quizeee Backend
 
 ## Структура проекта
 
