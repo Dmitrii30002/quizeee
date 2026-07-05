@@ -1,5 +1,5 @@
 ```md
-# Quiz MVP Frontend
+# Quizeee Frontend
 
 ## Структура проекта
 
