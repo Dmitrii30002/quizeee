@@ -1,4 +1,3 @@
-```md
 # Quizeee Frontend
 
 ## Структура проекта
