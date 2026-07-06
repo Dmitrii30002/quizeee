@@ -11,7 +11,12 @@ import QuizPlayPage from './pages/QuizPlayPage';
 import QuizResultsPage from './pages/QuizResultsPage';
 import './styles.css';
 
-const socket = io('http://localhost:4000', { autoConnect: false });
+const socket = (() => {
+  if (typeof window !== 'undefined' && window.__QUIZ_SOCKET_FACTORY__) {
+    return window.__QUIZ_SOCKET_FACTORY__();
+  }
+  return io('http://localhost:4000', { autoConnect: false });
+})();
 
 function AppContent() {
   const [session, setSession] = useState(loadSession());

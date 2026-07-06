@@ -1,5 +1,5 @@
 const bcrypt = require('bcryptjs');
-const { query } = require('../db/connection');
+const db = require('../db/connection');
 const { createToken } = require('../middleware/auth');
 
 async function register(username, password) {
@@ -11,13 +11,13 @@ async function register(username, password) {
     throw new Error('Username must be at least 3 characters');
   }
 
-  const existing = await query('SELECT id FROM users WHERE username = $1', [username]);
+  const existing = await db.query('SELECT id FROM users WHERE username = $1', [username]);
   if (existing.rows.length > 0) {
     throw new Error('Username already taken');
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
-  const result = await query(
+  const result = await db.query(
     'INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id, username',
     [username, passwordHash]
   );
@@ -32,7 +32,7 @@ async function login(username, password) {
     throw new Error('Username and password required');
   }
 
-  const result = await query('SELECT * FROM users WHERE username = $1', [username]);
+  const result = await db.query('SELECT * FROM users WHERE username = $1', [username]);
   if (result.rows.length === 0) {
     throw new Error('Invalid username or password');
   }
@@ -55,7 +55,7 @@ async function login(username, password) {
 }
 
 async function getProfile(userId) {
-  const result = await query(
+  const result = await db.query(
     `SELECT id, username, created_at FROM users WHERE id = $1`,
     [userId]
   );
@@ -66,7 +66,7 @@ async function getProfile(userId) {
 }
 
 async function getUserHistory(userId) {
-  const result = await query(
+  const result = await db.query(
     `SELECT qr.*, q.title, q.category, q.finished_at
      FROM quiz_results qr
      JOIN quizzes q ON qr.quiz_id = q.id

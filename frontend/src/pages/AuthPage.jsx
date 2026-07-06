@@ -83,4 +83,4 @@ export default function AuthPage({ onAuth, setMessage }) {
       </div>
     </div>
   );
-}
+} 

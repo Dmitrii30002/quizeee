@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: quiz_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: dima15
+      POSTGRES_DB: practika_PDV
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d practika_PDV"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: quiz_backend
+    environment:
+      DATABASE_URL: postgresql://postgres:dima15@db:5432/practika_PDV
+      JWT_SECRET: quiz-secret-key-change-in-production
+      PORT: 4000
+      NODE_ENV: development
+    ports:
+      - "4000:4000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: quiz_frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    environment:
+      - VITE_API_URL=http://localhost:4000/api
+
+volumes:
+  postgres_data:

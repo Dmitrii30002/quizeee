@@ -1,4 +1,4 @@
-const { query } = require('../db/connection');
+const db = require('../db/connection');
 
 function generateRoomCode() {
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -10,7 +10,7 @@ function generateRoomCode() {
 }
 
 async function createQuiz(creatorId, title, category, questionTime, rules) {
-  const result = await query(
+  const result = await db.query(
     `INSERT INTO quizzes (creator_id, title, category, question_time, rules)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING *`,
@@ -20,7 +20,7 @@ async function createQuiz(creatorId, title, category, questionTime, rules) {
 }
 
 async function addQuestion(quizId, text, type, options) {
-  const questionResult = await query(
+  const questionResult = await db.query(
     `INSERT INTO questions (quiz_id, text, type)
      VALUES ($1, $2, $3)
      RETURNING id`,
@@ -30,7 +30,7 @@ async function addQuestion(quizId, text, type, options) {
   const questionId = questionResult.rows[0].id;
 
   for (const option of options) {
-    await query(
+    await db.query(
       `INSERT INTO question_options (question_id, text, is_correct)
        VALUES ($1, $2, $3)`,
       [questionId, option.text, option.isCorrect]
@@ -41,7 +41,7 @@ async function addQuestion(quizId, text, type, options) {
 }
 
 async function getQuestion(questionId) {
-  const result = await query(
+  const result = await db.query(
     `SELECT q.id, q.quiz_id, q.text, q.type,
             json_agg(json_build_object('id', qo.id, 'text', qo.text, 'isCorrect', qo.is_correct)) as options
      FROM questions q
@@ -54,7 +54,7 @@ async function getQuestion(questionId) {
 }
 
 async function getQuiz(quizId) {
-  const result = await query(
+  const result = await db.query(
     `SELECT q.*, 
             json_agg(json_build_object(
               'id', qn.id,
@@ -73,7 +73,7 @@ async function getQuiz(quizId) {
 }
 
 async function getQuizzesByCreator(creatorId) {
-  const result = await query(
+  const result = await db.query(
     `SELECT q.*, 
             COUNT(qn.id) as question_count
      FROM quizzes q
@@ -89,7 +89,7 @@ async function getQuizzesByCreator(creatorId) {
 // Сессии (комнаты)
 async function createSession(quizId) {
   const roomCode = generateRoomCode();
-  const result = await query(
+  const result = await db.query(
     `INSERT INTO quiz_sessions (quiz_id, room_code, status)
      VALUES ($1, $2, 'waiting')
      RETURNING *`,
@@ -99,7 +99,7 @@ async function createSession(quizId) {
 }
 
 async function getSessionByRoomCode(roomCode) {
-  const result = await query(
+  const result = await db.query(
     `SELECT s.*, q.title, q.question_time, q.rules,
             json_agg(json_build_object(
               'id', qn.id,
@@ -119,7 +119,7 @@ async function getSessionByRoomCode(roomCode) {
 }
 
 async function getSession(sessionId) {
-  const result = await query(
+  const result = await db.query(
     `SELECT s.*, q.title, q.question_time, q.rules
      FROM quiz_sessions s
      JOIN quizzes q ON s.quiz_id = q.id
@@ -130,7 +130,7 @@ async function getSession(sessionId) {
 }
 
 async function startSession(sessionId) {
-  const result = await query(
+  const result = await db.query(
     `UPDATE quiz_sessions
      SET status = 'running', started_at = CURRENT_TIMESTAMP
      WHERE id = $1 AND status = 'waiting'
@@ -141,7 +141,7 @@ async function startSession(sessionId) {
 }
 
 async function finishSession(sessionId) {
-  const result = await query(
+  const result = await db.query(
     `UPDATE quiz_sessions
      SET status = 'finished', finished_at = CURRENT_TIMESTAMP
      WHERE id = $1
@@ -152,7 +152,7 @@ async function finishSession(sessionId) {
 }
 
 async function joinSession(sessionId, userId) {
-  await query(
+  await db.query(
     `INSERT INTO session_participants (session_id, user_id) VALUES ($1, $2)
      ON CONFLICT DO NOTHING`,
     [sessionId, userId]
@@ -160,7 +160,7 @@ async function joinSession(sessionId, userId) {
 }
 
 async function getSessionParticipants(sessionId) {
-  const result = await query(
+  const result = await db.query(
     `SELECT u.id, u.username
      FROM session_participants sp
      JOIN users u ON sp.user_id = u.id
@@ -171,14 +171,14 @@ async function getSessionParticipants(sessionId) {
 }
 
 async function submitAnswer(sessionId, userId, questionId, selectedOptionIds, isCorrect) {
-  await query(
+  await db.query(
     `INSERT INTO session_answers (session_id, user_id, question_id, selected_option_ids, is_correct)
      VALUES ($1, $2, $3, $4, $5)`,
     [sessionId, userId, questionId, selectedOptionIds, isCorrect]
   );
 
   if (isCorrect) {
-    const scoreResult = await query(
+    const scoreResult = await db.query(
       `INSERT INTO session_results (session_id, user_id, score)
        VALUES ($1, $2, 1)
        ON CONFLICT (session_id, user_id) DO UPDATE SET score = session_results.score + 1
@@ -188,7 +188,7 @@ async function submitAnswer(sessionId, userId, questionId, selectedOptionIds, is
     return scoreResult.rows[0];
   }
 
-  const scoreResult = await query(
+  const scoreResult = await db.query(
     `SELECT score FROM session_results WHERE session_id = $1 AND user_id = $2`,
     [sessionId, userId]
   );
@@ -196,7 +196,7 @@ async function submitAnswer(sessionId, userId, questionId, selectedOptionIds, is
 }
 
 async function getSessionLeaderboard(sessionId) {
-  const result = await query(
+  const result = await db.query(
     `SELECT sr.*, u.username FROM session_results sr
      JOIN users u ON sr.user_id = u.id
      WHERE sr.session_id = $1
@@ -232,7 +232,7 @@ async function getSessionLeaderboard(sessionId) {
 }
 
 async function deleteQuestion(questionId, quizId) {
-  await query(
+  await db.query(
     'DELETE FROM questions WHERE id = $1 AND quiz_id = $2',
     [questionId, quizId]
   );
